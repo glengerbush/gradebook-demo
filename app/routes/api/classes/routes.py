@@ -12,22 +12,10 @@ import datetime
 def owns_class(class_id):
     teacher_id = db.session.query(Teacher).with_entities(Teacher.id).filter(
         Teacher.user_id == current_user.id).one_or_none()
-    if db.session.query(teachers_classes).with_entities(teachers_classes.c.teacher_id). \
-            filter(and_(teachers_classes.c.class_id == class_id, teachers_classes.c.teacher_id == teacher_id)).first():
-        return True
-    else:
-        return False
+    return db.session.query(teachers_classes).with_entities(teachers_classes.c.teacher_id). \
+            filter(and_(teachers_classes.c.class_id == class_id, teachers_classes.c.teacher_id == teacher_id)).exists():
 
-
-def in_class(class_id):
-    if db.session.query(students_classes).with_entities(students_classes.c.student_id).filter(
-            students_classes.c.class_id == class_id).one_or_none() == db.session.query(Student).with_entities(
-            Student.id).filter(Student.user_id == current_user.id).one_or_none():
-        return True
-    else:
-        return False
-
-
+    
 @api_v1.route('/classes', methods=['GET'])
 @roles_required(['admin'])
 def all_classes():
@@ -41,10 +29,10 @@ def all_classes():
 
 
 @api_v1.route('/classes/<int:class_id>', methods=['GET'])
-@roles_required(['admin', 'teacher', 'student'])
+@roles_required(['admin', 'teacher'])
 def class_by_id(class_id):
     if current_user.is_authenticated:
-        if owns_class(class_id) or in_class(class_id) or current_user.has_roles('admin'):
+        if owns_class(class_id) or current_user.has_roles('admin'):
             return jsonify(db.session.query(Class).filter(Class.id == class_id).one_or_none().serialize())
     return redirect(url_for('auth.login'))
 
