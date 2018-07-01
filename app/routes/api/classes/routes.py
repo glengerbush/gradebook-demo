@@ -13,7 +13,7 @@ def owns_class(class_id):
     teacher_id = db.session.query(Teacher).with_entities(Teacher.id).filter(
         Teacher.user_id == current_user.id).one_or_none()
     return db.session.query(teachers_classes).with_entities(teachers_classes.c.teacher_id). \
-            filter(and_(teachers_classes.c.class_id == class_id, teachers_classes.c.teacher_id == teacher_id)).exists():
+            filter(and_(teachers_classes.c.class_id == class_id, teachers_classes.c.teacher_id == teacher_id)).scalar():
 
     
 @api_v1.route('/classes', methods=['GET'])
