@@ -1,0 +1,361 @@
+<div id="main-content-class">
+    <h1>{{ class_.name }}</h1>
+    <h5><b>Enrollment: </b>{{ enrollment }}</h5>
+    <!-- print class info here eventually -->
+    <ul class="nav nav-pills mb-3" id="gradebooktabs" role="tablist">
+        <li class="nav-item">
+            <a class="nav-link active" id="grades-tab" data-toggle="tab" href="#grades" role="tab"
+               aria-controls="grades" aria-selected="true">Grades</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" id="assignments-tab" data-toggle="tab" href="#assignments" role="tab"
+               aria-controls="assignments" aria-selected="false">Assignments</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" id="assignment-categories-tab" data-toggle="tab" href="#assignment-categories"
+               role="tab" aria-controls="assignment-categories" aria-selected="false">Categories</a>
+        </li>
+    </ul>
+    <div class="tab-content" id="gradebookcontent">
+        <div id="grades" class="tab-pane fade show in active" role="tabpanel" aria-labelledby="grades-tab">
+            <table id="grades-table" class="table table-striped nowrap table-bordered"
+                   style="width:100%">
+                <thead>
+                <tr class='grades-header'></tr>
+                </thead>
+            </table>
+        </div>
+        <div id="assignments" class="tab-pane fade" role="tabpanel" aria-labelledby="assignments-tab">
+            <table id="assignments-table" class="table table-striped table-bordered dt-responsive nowrap"
+                   style="width:100%">
+                <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Category</th>
+                    <th>Total Points</th>
+                    <th>Date</th>
+                </tr>
+                </thead>
+            </table>
+        </div>
+        <div id="assignment-categories" class="tab-pane fade" role="tabpanel"
+             aria-labelledby="assignment-categories-tab">
+            <table id="assignment-categories-table" class="table table-striped table-bordered dt-responsive nowrap"
+                   style="width:100%">
+                <thead>
+                <tr>
+                    {% for label, name in assignment_categories_col %}
+                        <th>{{ label }}</th>
+                    {% endfor %}
+                    <th>Class Avg.</th>
+                </tr>
+                </thead>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+var grades_editor;
+var assignments_editor;
+var assignment_categories_editor;
+(function ($) {
+    /////////////////////////////////////
+    /////         Grades        /////////
+    /////////////////////////////////////
+    $(document).ready(function () {
+        var name = "grades";
+        var tablename = '#' + name + '-table';
+        var fieldString, tableobject;
+
+        function manual_ajax_grades_dt() {
+            $.getJSON('/api/v1/classes/{{ class_.id }}/' + name, function (data) {
+                creategradestable(data)
+            })
+                .fail(function (response, exception) {
+                    var msg = '';
+                    if (response.status === 0) {
+                        msg = 'Not connect.\n Verify Network.';
+                    } else if (response.status == 404) {
+                        msg = 'Requested page not found. [404]';
+                    } else if (response.status == 500) {
+                        msg = 'Internal Server Error [500].';
+                    } else if (exception === 'parsererror') {
+                        msg = 'Requested JSON parse failed.';
+                    } else if (exception === 'timeout') {
+                        msg = 'Time out error.';
+                    } else if (exception === 'abort') {
+                        msg = 'Ajax request aborted.';
+                    } else {
+                        msg = 'Uncaught Error.\n' + response.responseText;
+                    }
+                    console.log(msg);
+                });
+        }
+
+        function creategradestable(data) {
+            // Iterate each column and print table headers for Datatables
+            $.each(data.fields, function (k, fieldObj) {
+                fieldString = '<th>' + fieldObj.label + '</th>';
+                $('.' + name + '-header').append(fieldString);
+            });
+
+            //datatable creation here
+
+
+            grades_editor = new $.fn.dataTable.Editor({
+                ajax: {
+                    contentType: 'application/json',
+                    data: function (d) {
+                        return JSON.stringify(d);
+                    },
+                    edit: {
+                        type: 'PUT',
+                        url: "/api/v1/classes/{{ class_.id }}/" + name + "/_id_",
+                        contentType: 'application/json',
+                        data: function (d) {
+                            var tmp = d['data'];
+                            d = tmp;
+                            return JSON.stringify(d);
+                        }
+                    }
+                },
+                table: tablename,
+                idSrc: "StudentID",
+                fields: data.fields
+            });
+
+            $(tablename).on('click', 'tbody td.editable', function (e) {
+                grades_editor.inline(this, {onBlur: 'submit'});
+            });
+
+            tableobject = $(tablename).DataTable({
+                responsive: false,
+                dom: "Bfrtip",
+                data: data.data,
+                columns: data.columns,
+                select: {
+                    style: 'os',
+                    blurable: true
+                },
+                keys: {
+                    editor: grades_editor,
+                    columns: ':not(:first-child, :nth-child(2), :last-child)'
+                },
+                scrollX: true,
+                scrollY: 400,
+                scrollCollapse: true,
+                paging: false,
+                buttons: [
+                    {extend: "edit", editor: grades_editor},
+                    'excel',
+                    'print'
+                ]
+
+            });
+        }
+
+        manual_ajax_grades_dt();
+        $('#' + name + '-tab').on('click', function () {
+            tableobject.destroy();
+            $('#' + name).empty().append("<table id='" + name + "-table' class='table table-striped nowrap table-bordered'' style='width:100%'><thead><tr class='" + name + "-header'></tr></table>");
+            manual_ajax_grades_dt();
+        });
+    });
+
+
+    /////////////////////////////////////
+    /////       Assignments       ///////
+    /////////////////////////////////////
+    $(document).ready(function () {
+        var name = "assignments";
+        var tablename = '#' + name + '-table';
+        assignments_editor = new $.fn.dataTable.Editor({
+            ajax: {
+                contentType: 'application/json',
+                data: function (d) {
+                    return JSON.stringify(d);
+                },
+                create: {
+                    type: 'POST',
+                    url: '/api/v1/classes/{{ class_.id }}/' + name,
+                    contentType: 'application/json',
+                    data: function (d) {
+                        var tmp = d['data'];
+                        d = tmp;
+                        return JSON.stringify(d);
+                    }
+                },
+                edit: {
+                    type: 'PUT',
+                    url: "/api/v1/classes/{{ class_.id }}/" + name + "/_id_",
+                    contentType: 'application/json',
+                    data: function (d) {
+                        var tmp = d['data'];
+                        d = tmp;
+                        return JSON.stringify(d);
+                    }
+                },
+                remove: {type: 'DELETE', url: '/api/v1/classes/{{ class_.id }}/' + name + '/_id_'}
+            },
+            table: tablename,
+            i18n: {
+                remove: {
+                    confirm: {
+                        _: "Deleting these assignments will delete all scores associated with them.\nAre you sure you wish to delete the assignments?",
+                        1: "Deleting this assignment will delete all scores associated with it.\nAre you sure you wish to delete the assignment?"
+                    }
+                }
+            },
+            idSrc: "Assignment.id",
+            fields: [
+                {
+                    label: "Name:",
+                    name: "Assignment.name"
+                },
+                {
+                    label: "Category:",
+                    name: "Assignment.assignment_category_id",
+                    type: "select",
+                },
+                {
+                    label: "Total Points:",
+                    name: "Assignment.total_points"
+                },
+                {
+                    label: "Date:",
+                    name: "Assignment.date",
+                    type: "datetime"
+                }
+            ]
+        });
+
+        $(tablename).on('click', 'tbody td', function (e) {
+            assignments_editor.inline(this, {onBlur: 'submit'});
+        });
+
+
+        var tableobject = $(tablename).DataTable({
+            dom: "Bfrltip",
+            ajax: {
+                url: '/api/v1/classes/{{ class_.id }}/' + name
+            },
+            columns: [
+                {data: "Assignment.name"},
+                {data: "AssignmentCategory.category", editField: "Assignment.assignment_category_id"},
+                {data: "Assignment.total_points"},
+                {data: "Assignment.date"}
+            ],
+            select: {
+                style: 'os',
+                blurable: true
+            },
+            keys: {
+                editor: assignments_editor
+            },
+            buttons: [
+                {extend: "edit", editor: assignments_editor},
+                {extend: "create", editor: assignments_editor},
+                {extend: "remove", editor: assignments_editor},
+                'excel',
+                'print'
+            ]
+
+        });
+        $('#' + name + '-tab').on('click', function () {
+            tableobject.ajax.reload(null, false);
+        });
+    });
+
+    /////////////////////////////////////
+    ///Categories(AssignmentCategories)//
+    /////////////////////////////////////
+    $(document).ready(function () {
+        var name = "assignment-categories";
+        var urlname = "assignment_categories";
+        var tablename = '#' + name + '-table';
+        assignment_categories_editor = new $.fn.dataTable.Editor({
+            ajax: {
+                contentType: 'application/json',
+                data: function (d) {
+                    return JSON.stringify(d);
+                },
+                create: {
+                    type: 'POST',
+                    url: '/api/v1/classes/{{ class_.id }}/' + urlname,
+                    contentType: 'application/json',
+                    data: function (d) {
+                        var tmp = d['data'];
+                        d = tmp;
+                        return JSON.stringify(d);
+                    }
+                },
+                edit: {
+                    type: 'PUT',
+                    url: "/api/v1/classes/{{ class_.id }}/" + urlname + "/_id_",
+                    contentType: 'application/json',
+                    data: function (d) {
+                        var tmp = d['data'];
+                        d = tmp;
+                        return JSON.stringify(d);
+                    }
+                },
+                remove: {type: 'DELETE', url: '/api/v1/classes/{{ class_.id }}/' + urlname + '/_id_'}
+            },
+            table: tablename,
+            idSrc: "id",
+            fields: [
+                {
+                    label: "Category",
+                    name: "category"
+                },
+                {
+                    label: "Weight",
+                    name: "weight"
+                },
+                {
+                    type: "readonly",
+                    label: "Class Avg.",
+                    name: "class_avg"
+                }
+            ]
+        });
+
+        $(tablename).on('click', 'tbody td', function (e) {
+            assignment_categories_editor.inline(this, {onBlur: 'submit'});
+        });
+
+        var tableobject = $(tablename).DataTable({
+            dom: "Bfrti",
+            ajax: {
+                url: '/api/v1/classes/{{ class_.id }}/' + urlname
+            },
+            columns: [
+                {data: 'category'},
+                {data: 'weight', render: $.fn.dataTable.render.number(',', '.', 0, '', '%')},
+                {data: 'class_avg'}
+            ],
+            select: {
+                style: 'os',
+                blurable: true
+            },
+            keys: {
+                editor: assignment_categories_editor
+            },
+            paging: false,
+            buttons: [
+                {extend: "edit", editor: assignment_categories_editor},
+                {extend: "create", editor: assignment_categories_editor},
+                {extend: "remove", editor: assignment_categories_editor},
+                'excel',
+                'print'
+            ]
+        });
+        $('#' + name + '-tab').on('click', function () {
+            tableobject.ajax.reload(null, false);
+        });
+    });
+}($));
+
+</script>
+

@@ -1,0 +1,35 @@
+{
+  "data": [
+    {% for object in objects %}
+    {% set outer_loop = loop %}
+    {
+      "{{ object_type }}": {
+        {% for colname in column_list %}
+        "{{ colname }}": "{{ object[colname] }}"
+        {% if loop.last %}{% else %},
+        {% endif %}
+        {% endfor %}
+      },
+      "{{ pick_what[0] }}": {
+        "{{ pick_what[1] }}": "{{ pick_dict[object[pick_what[2]]] }}"
+      }
+    }
+    {% if loop.last %}{% else %},
+    {% endif %}
+    {% endfor %}
+  ]
+  {% if send_pick_list is defined %},
+  "options": {
+    "{{ object_type }}.{{ pick_what[2] }}": [
+      {% for key, value in pick_dict.items() %}
+      {
+        "label": "{{ value }}",
+        "value": "{{ key }}"
+      }
+      {% if loop.last %}{% else %},
+      {% endif %}
+      {% endfor %}
+    ]
+  }
+  {% endif %}
+}

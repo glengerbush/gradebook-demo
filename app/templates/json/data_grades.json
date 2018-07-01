@@ -1,0 +1,60 @@
+{
+  "columns": [
+    {"data": "Student.last"},
+    {"data": "Student.first"}
+    {% if objects[1] %},
+      {% for assignment in objects[1] %}
+        {"data": "Assignment.{{ assignment.id }}.score", "className": "editable"},
+      {% endfor %}
+    {"data": "Overall"}
+    {% endif %}
+                ],
+  "fields": [
+    {
+          "type": "readonly",
+          "label": "Last",
+          "name": "Student.last"
+        },
+    {
+          "type": "readonly",
+          "label": "First",
+          "name": "Student.first"
+        }
+    {% if objects[1] %},
+     {% for assignment in objects[1] %}{
+       "label": "{{ assignment.name }} - {{ assignment.total_points }}<br>{{ pick_dict[assignment.assignment_category_id] }}",
+       "name": "Assignment.{{assignment.id }}.score"
+      },
+    {% endfor %}
+    {
+          "type": "readonly",
+          "label": "Overall",
+          "name": "Overall"
+        }
+    {% endif %}
+  ],
+  "data": [
+    {% for object in objects[0] %}
+    {
+      {% set outer_loop = loop %}
+      "StudentID": "{{ object.id }}",
+      "Overall" : "{{ (overall_score[object.id] * 100)|round|int }}%",
+      "{{ object_types[0] }}": {
+        "first": "{{ object.first }}",
+        "last": "{{ object.last }}"
+      }
+      {% if objects[1] %},
+      "{{ object_types[1] }}":{
+        {% for assignment in objects[1] %}
+        "{{ assignment.id }}": {
+              "name": "{{ assignment.name }}",
+              "date": "{{ assignment.date }}",
+              "score": {% if objects[2][object.id][assignment.id] == None %}""{% else %}"{{ objects[2][object.id][assignment.id] }}"{% endif %}
+        }{% if loop.last %}{% else %},{% endif %}
+        {% endfor %}
+      }
+      {% endif %}
+    }{% if loop.last %}{% else %},{% endif %}
+    {% endfor %}
+  ]
+}

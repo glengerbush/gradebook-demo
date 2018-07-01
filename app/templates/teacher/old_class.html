@@ -1,0 +1,189 @@
+<div id="main-content-old-class">
+    <h1>{{ class_.name }}</h1>
+    <h5><b>Enrollment: </b>{{ enrollment }}</h5>
+    <!--- print class info here eventually --->
+    <ul class="nav nav-pills mb-3" id="gradebooktabs" role="tablist">
+        <li class="nav-item">
+            <a class="nav-link active" id="grades-tab" data-toggle="tab" href="#grades" role="tab"
+               aria-controls="grades" aria-selected="true">Grades</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" id="assignments-tab" data-toggle="tab" href="#assignments" role="tab"
+               aria-controls="assignments" aria-selected="false">Assignments</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" id="assignment-categories-tab" data-toggle="tab" href="#assignment-categories"
+               role="tab" aria-controls="assignment-categories" aria-selected="false">Categories</a>
+        </li>
+    </ul>
+    <div class="tab-content" id="gradebookcontent">
+        <div id="grades" class="tab-pane fade show in active" role="tabpanel" aria-labelledby="grades-tab">
+            <table id="grades-table" class="table table-striped nowrap table-bordered"
+                   style="width:100%">
+                <thead>
+                <tr class='grades-header'></tr>
+                </thead>
+            </table>
+        </div>
+        <div id="assignments" class="tab-pane fade" role="tabpanel" aria-labelledby="assignments-tab">
+            <table id="assignments-table" class="table table-striped table-bordered dt-responsive nowrap"
+                   style="width:100%">
+                <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Category</th>
+                    <th>Total Points</th>
+                    <th>Date</th>
+                </tr>
+                </thead>
+            </table>
+        </div>
+        <div id="assignment-categories" class="tab-pane fade" role="tabpanel"
+             aria-labelledby="assignment-categories-tab">
+            <table id="assignment-categories-table" class="table table-striped table-bordered dt-responsive nowrap"
+                   style="width:100%">
+                <thead>
+                <tr>
+                    {% for label, name in assignment_categories_col %}
+                        <th>{{ label }}</th>
+                    {% endfor %}
+                    <th>Class Avg.</th>
+                </tr>
+                </thead>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    (function ($) {
+        /////////////////////////////////////
+        /////         Grades        /////////
+        /////////////////////////////////////
+        $(document).ready(function () {
+            var name = "grades";
+            var tablename = '#' + name + '-table';
+            var fieldString, tableobject;
+
+            function manual_ajax_grades_dt() {
+                $.getJSON('/api/v1/classes/{{ class_.id }}/' + name, function (data) {
+                    creategradestable(data)
+                })
+                    .fail(function (response, exception) {
+                        var msg = '';
+                        if (response.status === 0) {
+                            msg = 'Not connect.\n Verify Network.';
+                        } else if (response.status == 404) {
+                            msg = 'Requested page not found. [404]';
+                        } else if (response.status == 500) {
+                            msg = 'Internal Server Error [500].';
+                        } else if (exception === 'parsererror') {
+                            msg = 'Requested JSON parse failed.';
+                        } else if (exception === 'timeout') {
+                            msg = 'Time out error.';
+                        } else if (exception === 'abort') {
+                            msg = 'Ajax request aborted.';
+                        } else {
+                            msg = 'Uncaught Error.\n' + response.responseText;
+                        }
+                        console.log(msg);
+                    });
+            }
+
+            function creategradestable(data) {
+                // Iterate each column and print table headers for Datatables
+                $.each(data.fields, function (k, fieldObj) {
+                    fieldString = '<th>' + fieldObj.label + '</th>';
+                    $('.' + name + '-header').append(fieldString);
+                });
+
+                //datatable creation here
+
+                tableobject = $(tablename).DataTable({
+                    responsive: false,
+                    dom: "Bfrtip",
+                    data: data.data,
+                    columns: data.columns,
+                    select: {
+                        style: 'os',
+                        blurable: true
+                    },
+                    scrollX: true,
+                    scrollY: 400,
+                    scrollCollapse: true,
+                    paging: false,
+                    buttons: [
+                        'excel',
+                        'print'
+                    ]
+
+                });
+            }
+
+            manual_ajax_grades_dt();
+
+        });
+
+
+        /////////////////////////////////////
+        /////        Assignments      ///////
+        /////////////////////////////////////
+        $(document).ready(function () {
+            var name = "assignments";
+            var tablename = '#' + name + '-table';
+
+
+            var tableobject = $(tablename).DataTable({
+                dom: "Bfrltip",
+                ajax: {
+                    url: '/api/v1/classes/{{ class_.id }}/' + name
+                },
+                columns: [
+                    {data: "Assignment.name"},
+                    {data: "AssignmentCategory.category", editField: "Assignment.assignment_category_id"},
+                    {data: "Assignment.total_points"},
+                    {data: "Assignment.date"}
+                ],
+                select: {
+                    style: 'os',
+                },
+                buttons: [
+                    'excel',
+                    'print'
+                ]
+
+            });
+        });
+
+        /////////////////////////////////////
+        ///Categories(AssignmentCategories)//
+        /////////////////////////////////////
+        $(document).ready(function () {
+            var name = "assignment-categories";
+            var urlname = "assignment_categories";
+            var tablename = '#' + name + '-table';
+
+            var tableobject = $(tablename).DataTable({
+                dom: "Bfrti",
+                ajax: {
+                    url: '/api/v1/classes/{{ class_.id }}/' + urlname
+                },
+                columns: [
+                    {data: 'category'},
+                    {data: 'weight', render: $.fn.dataTable.render.number(',', '.', 0, '', '%')},
+                    {data: 'class_avg'}
+                ],
+                select: {
+                    style: 'os',
+                },
+                paging: false,
+                buttons: [
+                    'excel',
+                    'print'
+                ]
+            });
+        });
+    }($);
+
+</script>
+
